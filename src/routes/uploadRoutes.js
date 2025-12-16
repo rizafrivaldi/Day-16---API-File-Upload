@@ -3,6 +3,8 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const prisma = require("../../prisma/prisma");
 const protect = require("../middleware/authMiddleware");
+const fs = require("fs");
+const path = require("path");
 
 // SINGLE UPLOAD
 router.post("/single", protect, upload.single("file"), async (req, res) => {
@@ -24,7 +26,7 @@ router.post("/single", protect, upload.single("file"), async (req, res) => {
       image,
     });
   } catch (error) {
-    console.error("UPLOAD SINGLE ERROR:", error);
+    console.error("UPLOAD ERROR:", error);
     res.status(500).json({ message: "Terjadi kesalahan server" });
   }
 });
@@ -61,5 +63,34 @@ router.post(
     }
   }
 );
+
+router.get("/", protect, async (req, res) => {
+  const images = await prisma.image.findMany({
+    where: { userId: req.user.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    count: images.length,
+    images,
+  });
+});
+
+router.delete("/id", protect, async (req, res) => {
+  const image = await prisma.image.findUnique({
+    where: { id: Number(req.params.id) },
+  });
+
+  if (!image) return res.status(404).json({ message: "File not found" });
+
+  //delete physical file
+  fs.unlink(path.join(__dirname, "../../uploads", image.filename));
+
+  await prisma.image.delete({
+    where: { id: image.id },
+  });
+
+  res.json({ message: "File deleted successfully" });
+});
 
 module.exports = router;
