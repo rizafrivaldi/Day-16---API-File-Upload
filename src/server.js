@@ -10,7 +10,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 //routes
-app.use("/api/upload", uploadRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
