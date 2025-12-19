@@ -57,6 +57,7 @@ router.post(
       return res.status(201).json({
         message: "Multiple files uploaded successfully",
         count: images.count,
+        imageData: imageData,
       });
     } catch (error) {
       console.error("UPLOAD MULTIPLE ERROR:", error);
@@ -104,6 +105,47 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+router.put("/:id", protect, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+
+    const { filename } = req.body;
+
+    if (!filename) {
+      return res.status(400).json({ message: "filename is required" });
+    }
+
+    const image = await prisma.image.findUnique({ where: { id } });
+
+    if (!image) {
+      return res.status(404).json({ message: "File not found" });
+    }
+
+    if (image.userId !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden action" });
+    }
+
+    const updateImages = await prisma.image.update({
+      where: { id },
+      data: {
+        filename,
+        url: `/uploads/${filename}`,
+      },
+    });
+
+    res.json({
+      messaage: "File updated successfully",
+      image: updateImages,
+    });
+  } catch (error) {
+    console.error("Update image error:", error);
+    res.status(500).json({ message: "Terjadi kesalahan server" });
+  }
+});
+
 router.delete("/:id", protect, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -133,7 +175,17 @@ router.delete("/:id", protect, async (req, res) => {
       where: { id: image.id },
     });
 
-    res.json({ message: "File deleted successfully" });
+    res.json({
+      message: "File deleted successfully",
+      deleteFile: {
+        id: image.id,
+        filename: image.filename,
+        url: image.url,
+        size: image.size,
+        mimetype: image.mimetype,
+        delete: new Date(),
+      },
+    });
   } catch (error) {
     console.error("DELETE IMAGE ERROR:", error);
     res.status(500).json({ message: "Terjadi kesalahan server" });
