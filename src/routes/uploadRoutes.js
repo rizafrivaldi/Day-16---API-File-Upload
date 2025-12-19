@@ -105,46 +105,65 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
-router.put("/:id", protect, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid ID" });
+router.put(
+  "/:id/reupload",
+  protect,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const image = await prisma.image.findUnique({ where: { id } });
+
+      if (!image) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      if (image.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden action" });
+      }
+
+      //delete old physical file
+      try {
+        await fs.promises.unlink(
+          path.join(__dirname, "../../uploads", image.filename)
+        );
+      } catch (err) {
+        console.warn("Old file already deleted");
+      }
+
+      const updateImage = await prisma.image.update({
+        where: { id },
+        data: {
+          filename: req.file.filename,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          url: `/uploads/${req.file.filename}`,
+        },
+      });
+
+      res.json({
+        message: "File reuploaded successfully",
+        before: {
+          id: image.id,
+          filename: image.filename,
+          url: image.url,
+        },
+        after: updateImage,
+      });
+    } catch (error) {
+      console.error("Reupload image error:", error);
+      res.status(500).json({ message: "Terjadi kesalahan server" });
     }
-
-    const { filename } = req.body;
-
-    if (!filename) {
-      return res.status(400).json({ message: "filename is required" });
-    }
-
-    const image = await prisma.image.findUnique({ where: { id } });
-
-    if (!image) {
-      return res.status(404).json({ message: "File not found" });
-    }
-
-    if (image.userId !== req.user.id) {
-      return res.status(403).json({ message: "Forbidden action" });
-    }
-
-    const updateImages = await prisma.image.update({
-      where: { id },
-      data: {
-        filename,
-        url: `/uploads/${filename}`,
-      },
-    });
-
-    res.json({
-      messaage: "File updated successfully",
-      image: updateImages,
-    });
-  } catch (error) {
-    console.error("Update image error:", error);
-    res.status(500).json({ message: "Terjadi kesalahan server" });
   }
-});
+);
 
 router.delete("/:id", protect, async (req, res) => {
   try {
