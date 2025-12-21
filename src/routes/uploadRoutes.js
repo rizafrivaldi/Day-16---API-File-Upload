@@ -68,16 +68,44 @@ router.post(
 
 router.get("/", protect, async (req, res) => {
   try {
-    const images = await prisma.image.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: "desc" },
-    });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+    const sortBy = req.query.sortBy || "createdAt";
+    const order = req.query.order === "asc" ? "asc" : "desc";
+
+    const skip = (page - 1) * limit;
+
+    const where = {
+      userId: req.user.id,
+      filename: {
+        contains: search,
+      },
+    };
+
+    const [total, images] = await Promise.all([
+      prisma.image.count({ where }),
+      prisma.image.findMany({
+        where,
+        skip,
+        tale: limit,
+        orderBy: {
+          [sortBy]: order,
+        },
+      }),
+    ]);
 
     res.json({
-      count: images.length,
-      images,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      data: images,
     });
-  } catch (err) {
+  } catch (error) {
+    console.error("Pagination error:", error);
     res.status(500).json({ message: "Terjadi kesalahan server" });
   }
 });
