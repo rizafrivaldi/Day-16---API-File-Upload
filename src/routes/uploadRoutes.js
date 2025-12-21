@@ -5,6 +5,7 @@ const prisma = require("../../prisma/prisma");
 const protect = require("../middleware/authMiddleware");
 const fs = require("fs");
 const path = require("path");
+const authorize = require("../middleware/roleMiddleware");
 
 // SINGLE UPLOAD
 router.post("/single", protect, upload.single("file"), async (req, res) => {
@@ -133,6 +134,22 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+router.get("/admin/all", protect, authorize("admin"), async (req, res) => {
+  const images = await prisma.image.findMany({
+    include: {
+      user: {
+        select: { id: true, username: true, email: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    count: images.length,
+    images,
+  });
+});
+
 router.put(
   "/:id/reupload",
   protect,
@@ -192,6 +209,23 @@ router.put(
     }
   }
 );
+
+router.delete("/admin/:id", protect, authorize("admin"), async (req, res) => {
+  const id = Number(req.params.id);
+
+  const image = await prisma.image.findUnique({ where: { id } });
+  if (!image) return res.status(404).json({ message: "File not found" });
+
+  //delete physical file
+  try {
+    await fs.promises.unlink(
+      path.join(__dirname, "../../uploads", image.filename)
+    );
+  } catch {}
+  await prisma.image.delete({ where: { id } });
+
+  res.json({ message: "Admin deleted file", deletedFile: image });
+});
 
 router.delete("/:id", protect, async (req, res) => {
   try {
