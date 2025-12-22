@@ -6,18 +6,20 @@ const protect = require("../middleware/authMiddleware");
 const fs = require("fs");
 const path = require("path");
 const authorize = require("../middleware/roleMiddleware");
+const cloudinary = require("../config/cloudinary");
 
 // SINGLE UPLOAD
 router.post("/single", protect, upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
 
     const image = await prisma.image.create({
       data: {
-        filename: req.file.filename,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        url: `/uploads/${req.file.filename}`,
+        publicId: file.public_id, //cloudinary public_id
+        url: file.secure_url, //cloudinary secure_URL
+        mimetype: file.mimetype,
+        size: file.bytes,
         userId: req.user.id,
       },
     });
@@ -39,26 +41,35 @@ router.post(
   upload.array("files", 5),
   async (req, res) => {
     try {
-      if (!req.files || req.files.length === 0)
+      /*if (!req.files || req.files.length === 0)
         return res.status(400).json({ message: "No files uploaded" });
 
-      const imageData = req.files.map((file) => ({
-        filename: file.filename,
+      const data = req.files.map((file) => ({
+        publicId: file.filename,
+        url: file.path,
         mimetype: file.mimetype,
         size: file.size,
-        url: `/uploads/${file.filename}`,
+        userId: req.user.id,
+      }));
+      */
+
+      const images = req.files.map((file) => ({
+        publicId: file.public_id,
+        url: file.secure_url,
+        mimetype: file.mimetype,
+        size: file.bytes,
         userId: req.user.id,
       }));
 
-      const images = await prisma.image.createMany({
-        data: imageData,
+      const result = await prisma.image.createMany({
+        data: images,
         skipDuplicates: true,
       });
 
       return res.status(201).json({
         message: "Multiple files uploaded successfully",
-        count: images.count,
-        imageData: imageData,
+        count: result.count,
+        images: images,
       });
     } catch (error) {
       console.error("UPLOAD MULTIPLE ERROR:", error);
@@ -69,8 +80,8 @@ router.post(
 
 router.get("/", protect, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
     const search = req.query.search || "";
     const sortBy = req.query.sortBy || "createdAt";
     const order = req.query.order === "asc" ? "asc" : "desc";
@@ -79,7 +90,7 @@ router.get("/", protect, async (req, res) => {
 
     const where = {
       userId: req.user.id,
-      filename: {
+      publicId: {
         contains: search,
       },
     };
@@ -89,7 +100,7 @@ router.get("/", protect, async (req, res) => {
       prisma.image.findMany({
         where,
         skip,
-        tale: limit,
+        take: limit,
         orderBy: {
           [sortBy]: order,
         },
@@ -230,11 +241,14 @@ router.delete("/admin/:id", protect, authorize("admin"), async (req, res) => {
 router.delete("/:id", protect, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid ID" });
-    }
+    const image= await.prisma.image.findUnique({ where: { id } });
+
+    if (!image) return.res.status(404).json({ message: "Not found" });
+    if (!image.userId !== req.user.id)
+      return res.status(403).json({ message: "Forbidden" });
+    
     const image = await prisma.image.findUnique({
-      where: { id },
+      where: { id: Number(req.params.id) },
     });
 
     if (!image) return res.status(404).json({ message: "File not found" });
@@ -251,6 +265,8 @@ router.delete("/:id", protect, async (req, res) => {
     } catch (err) {
       console.warn("File already deleted");
     }
+
+    await cloudinary.uploader.destroy(image.publicId);
 
     await prisma.image.delete({
       where: { id: image.id },
