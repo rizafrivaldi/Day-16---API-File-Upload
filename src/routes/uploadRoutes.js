@@ -174,10 +174,6 @@ router.put(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
       const image = await prisma.image.findUnique({ where: { id } });
       if (!image) {
         return res.status(404).json({ message: "File not found" });
@@ -187,21 +183,15 @@ router.put(
       }
 
       //delete old physical file
-      try {
-        await fs.promises.unlink(
-          path.join(__dirname, "../../uploads", image.file.public_id)
-        );
-      } catch (err) {
-        console.warn("Old file already deleted");
-      }
+      await cloudinary.uploader.destroy(image.publicId);
 
       const updateImage = await prisma.image.update({
         where: { id },
         data: {
-          filename: req.file.filename,
+          publicId: req.file.public_id,
+          url: req.file.secure_url,
           mimetype: req.file.mimetype,
           size: req.file.size,
-          url: `/uploads/${req.file.filename}`,
         },
       });
 
