@@ -3,8 +3,10 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const prisma = require("../../prisma/prisma");
 const protect = require("../middleware/authMiddleware");
+/*
 const fs = require("fs");
 const path = require("path");
+*/
 const authorize = require("../middleware/roleMiddleware");
 const cloudinary = require("../config/cloudinary");
 
@@ -168,8 +170,8 @@ router.put(
   async (req, res) => {
     try {
       const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid ID" });
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
       }
 
       if (!req.file) {
@@ -177,11 +179,9 @@ router.put(
       }
 
       const image = await prisma.image.findUnique({ where: { id } });
-
       if (!image) {
         return res.status(404).json({ message: "File not found" });
       }
-
       if (image.userId !== req.user.id) {
         return res.status(403).json({ message: "Forbidden action" });
       }
@@ -189,7 +189,7 @@ router.put(
       //delete old physical file
       try {
         await fs.promises.unlink(
-          path.join(__dirname, "../../uploads", image.filename)
+          path.join(__dirname, "../../uploads", image.file.public_id)
         );
       } catch (err) {
         console.warn("Old file already deleted");
@@ -221,6 +221,7 @@ router.put(
   }
 );
 
+/*
 router.delete("/admin/:id", protect, authorize("admin"), async (req, res) => {
   const id = Number(req.params.id);
 
@@ -237,16 +238,19 @@ router.delete("/admin/:id", protect, authorize("admin"), async (req, res) => {
 
   res.json({ message: "Admin deleted file", deletedFile: image });
 });
+*/
 
 router.delete("/:id", protect, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const image= await.prisma.image.findUnique({ where: { id } });
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-    if (!image) return.res.status(404).json({ message: "Not found" });
-    if (!image.userId !== req.user.id)
+    const image = await prisma.image.findUnique({ where: { id } });
+    if (image.userId !== req.user.id)
       return res.status(403).json({ message: "Forbidden" });
-    
+    if (!image) return res.status(404).json({ message: "Not found" });
+
+    /*
     const image = await prisma.image.findUnique({
       where: { id: Number(req.params.id) },
     });
@@ -265,22 +269,22 @@ router.delete("/:id", protect, async (req, res) => {
     } catch (err) {
       console.warn("File already deleted");
     }
+*/
 
     await cloudinary.uploader.destroy(image.publicId);
-
     await prisma.image.delete({
-      where: { id: image.id },
+      where: { id },
     });
 
     res.json({
       message: "File deleted successfully",
-      deleteFile: {
+      deletedFile: {
         id: image.id,
-        filename: image.filename,
+        publicId: image.publicId,
         url: image.url,
         size: image.size,
         mimetype: image.mimetype,
-        delete: new Date(),
+        deletedAt: new Date(),
       },
     });
   } catch (error) {
