@@ -43,9 +43,10 @@ router.post(
   upload.array("files", 5),
   async (req, res) => {
     try {
-      /*if (!req.files || req.files.length === 0)
+      if (!req.files || req.files.length === 0)
         return res.status(400).json({ message: "No files uploaded" });
 
+      /*
       const data = req.files.map((file) => ({
         publicId: file.filename,
         url: file.path,
@@ -96,6 +97,11 @@ router.get("/", protect, async (req, res) => {
         contains: search,
       },
     };
+
+    const allowedSort = ["createdt", "size", "publicId"];
+    if (!allowedSort.includes(sortBy)) {
+      return res.status(400).json({ message: "Invalid sort field" });
+    }
 
     const [total, images] = await Promise.all([
       prisma.image.count({ where }),
@@ -191,7 +197,7 @@ router.put(
           publicId: req.file.public_id,
           url: req.file.secure_url,
           mimetype: req.file.mimetype,
-          size: req.file.size,
+          size: req.file.bytes,
         },
       });
 
@@ -199,7 +205,7 @@ router.put(
         message: "File reuploaded successfully",
         before: {
           id: image.id,
-          filename: image.filename,
+          filename: image.publicId,
           url: image.url,
         },
         after: updateImage,
@@ -236,9 +242,10 @@ router.delete("/:id", protect, async (req, res) => {
     if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
     const image = await prisma.image.findUnique({ where: { id } });
+    if (!image) return res.status(404).json({ message: "Not found" });
+
     if (image.userId !== req.user.id)
       return res.status(403).json({ message: "Forbidden" });
-    if (!image) return res.status(404).json({ message: "Not found" });
 
     /*
     const image = await prisma.image.findUnique({
