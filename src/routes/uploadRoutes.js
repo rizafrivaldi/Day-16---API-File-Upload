@@ -3,36 +3,28 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const prisma = require("../../prisma/prisma");
 const protect = require("../middleware/authMiddleware");
-/*
-const fs = require("fs");
-const path = require("path");
-*/
 const authorize = require("../middleware/roleMiddleware");
 const cloudinary = require("../config/cloudinary");
 
 // SINGLE UPLOAD
 router.post("/single", protect, upload.single("file"), async (req, res) => {
   try {
-    const file = req.file;
-    if (!file) return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file) return error(res, 400, "No file uploaded");
 
     const image = await prisma.image.create({
       data: {
-        publicId: file.public_id, //cloudinary public_id
-        url: file.secure_url, //cloudinary secure_URL
-        mimetype: file.mimetype,
-        size: file.bytes,
+        publicId: req.file.public_id,
+        url: req.file.secure_url,
+        mimetype: req.file.mimetype,
+        size: req.file.bytes,
         userId: req.user.id,
       },
     });
 
-    return res.status(201).json({
-      message: "File uploaded successfully",
-      image,
-    });
-  } catch (error) {
-    console.error("UPLOAD ERROR:", error);
-    res.status(500).json({ message: "Terjadi kesalahan server" });
+    return success(res, 201, "File uploaded succesfully", image);
+  } catch (err) {
+    console.error(err);
+    return error(res, 500, "Terjadi kesalahan server");
   }
 });
 
@@ -44,17 +36,7 @@ router.post(
   async (req, res) => {
     try {
       if (!req.files || req.files.length === 0)
-        return res.status(400).json({ message: "No files uploaded" });
-
-      /*
-      const data = req.files.map((file) => ({
-        publicId: file.filename,
-        url: file.path,
-        mimetype: file.mimetype,
-        size: file.size,
-        userId: req.user.id,
-      }));
-      */
+        return error(res, 400, "No files uploaded");
 
       const images = req.files.map((file) => ({
         publicId: file.public_id,
@@ -69,14 +51,12 @@ router.post(
         skipDuplicates: true,
       });
 
-      return res.status(201).json({
-        message: "Multiple files uploaded successfully",
+      return success(res, 201, "Multiple files uploaded successfully", images, {
         count: result.count,
-        images: images,
       });
-    } catch (error) {
-      console.error("UPLOAD MULTIPLE ERROR:", error);
-      res.status(500).json({ message: "Terjadi kesalahan server" });
+    } catch (err) {
+      console.error(err);
+      return error(res, 500, "Terjadi kesalahan server");
     }
   }
 );
@@ -89,7 +69,10 @@ router.get("/", protect, async (req, res) => {
     const sortBy = req.query.sortBy || "createdAt";
     const order = req.query.order === "asc" ? "asc" : "desc";
 
-    const skip = (page - 1) * limit;
+    const allowedSort = ["createdAt", "size", "publicId"];
+    if (!allowedSort.includes(sortBy)) {
+      return error(res, 400, "Invalid sort field");
+    }
 
     const where = {
       userId: req.user.id,
@@ -98,16 +81,11 @@ router.get("/", protect, async (req, res) => {
       },
     };
 
-    const allowedSort = ["createdt", "size", "publicId"];
-    if (!allowedSort.includes(sortBy)) {
-      return res.status(400).json({ message: "Invalid sort field" });
-    }
-
     const [total, images] = await Promise.all([
       prisma.image.count({ where }),
       prisma.image.findMany({
         where,
-        skip,
+        skip: (page - 1) * limit,
         take: limit,
         orderBy: {
           [sortBy]: order,
@@ -115,7 +93,7 @@ router.get("/", protect, async (req, res) => {
       }),
     ]);
 
-    res.json({
+    return success(res, 200, "Images fetched successfully", images, {
       meta: {
         page,
         limit,
@@ -124,9 +102,9 @@ router.get("/", protect, async (req, res) => {
       },
       data: images,
     });
-  } catch (error) {
-    console.error("Pagination error:", error);
-    res.status(500).json({ message: "Terjadi kesalahan server" });
+  } catch (err) {
+    console.error(err);
+    return error(res, 500, "Terjadi kesalahan server");
   }
 });
 
@@ -143,13 +121,13 @@ router.get("/:id", protect, async (req, res) => {
     });
 
     if (!image) {
-      return res.status(404).json({ message: "File not found" });
+      return error(res, 404, "File not found");
     }
 
-    res.json(image);
-  } catch (error) {
-    console.error("GET IMAGE ERROR:", error);
-    res.status(500).json({ message: "Terjadi kesalahan server" });
+    return success(res, 200, "Image fetched successfully", image);
+  } catch (err) {
+    console.error(err);
+    return error(res, 500, "Terjadi kesalahan server");
   }
 });
 
@@ -177,18 +155,17 @@ router.put(
     try {
       const id = Number(req.params.id);
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return error(res, 400, "No file uploades");
       }
 
       const image = await prisma.image.findUnique({ where: { id } });
       if (!image) {
-        return res.status(404).json({ message: "File not found" });
+        return error(res, 404, "File not found");
       }
       if (image.userId !== req.user.id) {
-        return res.status(403).json({ message: "Forbidden action" });
+        return error(res, 403, "Forbidden action");
       }
 
-      //delete old physical file
       await cloudinary.uploader.destroy(image.publicId);
 
       const updateImage = await prisma.image.update({
@@ -201,80 +178,32 @@ router.put(
         },
       });
 
-      res.json({
-        message: "File reuploaded successfully",
-        before: {
-          id: image.id,
-          filename: image.publicId,
-          url: image.url,
-        },
+      return success(res, 200, "File uploaded successfully", {
+        before: image,
         after: updateImage,
       });
-    } catch (error) {
-      console.error("Reupload image error:", error);
-      res.status(500).json({ message: "Terjadi kesalahan server" });
+    } catch (err) {
+      console.error(err);
+      return error(res, 500, "Terjadi kesalahan server");
     }
   }
 );
 
-/*
-router.delete("/admin/:id", protect, authorize("admin"), async (req, res) => {
-  const id = Number(req.params.id);
-
-  const image = await prisma.image.findUnique({ where: { id } });
-  if (!image) return res.status(404).json({ message: "File not found" });
-
-  //delete physical file
-  try {
-    await fs.promises.unlink(
-      path.join(__dirname, "../../uploads", image.filename)
-    );
-  } catch {}
-  await prisma.image.delete({ where: { id } });
-
-  res.json({ message: "Admin deleted file", deletedFile: image });
-});
-*/
-
 router.delete("/:id", protect, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+    if (isNaN(id)) return error(res, 400, "Invalid ID");
 
     const image = await prisma.image.findUnique({ where: { id } });
-    if (!image) return res.status(404).json({ message: "Not found" });
-
-    if (image.userId !== req.user.id)
-      return res.status(403).json({ message: "Forbidden" });
-
-    /*
-    const image = await prisma.image.findUnique({
-      where: { id: Number(req.params.id) },
-    });
-
-    if (!image) return res.status(404).json({ message: "File not found" });
-
-    if (image.userId !== req.user.id) {
-      return res.status(403).json({ message: "Forbidden action" });
-    }
-
-    //delete physical file
-    try {
-      await fs.promises.unlink(
-        path.join(__dirname, "../../uploads", image.filename)
-      );
-    } catch (err) {
-      console.warn("File already deleted");
-    }
-*/
+    if (!image) return error(res, 404, "Not found");
+    if (image.userId !== req.user.id) return error(res, 403, "Forbidden");
 
     await cloudinary.uploader.destroy(image.publicId);
     await prisma.image.delete({
       where: { id },
     });
 
-    res.json({
-      message: "File deleted successfully",
+    return success(res, 200, "File deleted successfully", {
       deletedFile: {
         id: image.id,
         publicId: image.publicId,
@@ -284,9 +213,9 @@ router.delete("/:id", protect, async (req, res) => {
         deletedAt: new Date(),
       },
     });
-  } catch (error) {
-    console.error("DELETE IMAGE ERROR:", error);
-    res.status(500).json({ message: "Terjadi kesalahan server" });
+  } catch (err) {
+    console.error(err);
+    return error(res, 500, "Terjadi kesalahan server");
   }
 });
 
