@@ -6,7 +6,7 @@ exports.register = async (req, res) => {
     const user = await authService.register(req.body);
     return success(res, 201, "Register successful", user);
   } catch (err) {
-    return error(res, err.status || 500, err.message);
+    return error(res, err.status, err.message);
   }
 };
 
@@ -15,6 +15,6 @@ exports.login = async (req, res) => {
     const data = await authService.login(req.body);
     return success(res, 201, "Login successful", data);
   } catch (err) {
-    return error(res, err.status || 500, err.mmessage);
+    return error(res, err.status, err.mmessage);
   }
 };

@@ -1,4 +1,4 @@
-const prisma = require("../../prisma/prisma");
+const prisma = require("../config/prisma");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../utils/token");
 
@@ -33,36 +33,36 @@ exports.register = async ({ username, email, password }) => {
 };
 
 exports.login = async ({ email, password }) => {
-    id (!email || !password) {
-        throw { status: 400, message: "Email & password are required" };
-    }
+  if (!email || !password) {
+    throw { status: 400, message: "Email & password are required" };
+  }
 
-    const user = await prisma.user.findUnique({
-        where: { email },
-    });
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
 
-    if (!user) {
-        throw { status: 401, message: "Invalid email or password" };
-    }
+  if (!user) {
+    throw { status: 401, message: "Invalid email or password" };
+  }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-        throw { status: 401, message: "Invalid email or password" };
-    }
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw { status: 401, message: "Invalid email or password" };
+  }
 
-    const token = generateToken({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-    });
+  const token = generateToken({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  });
 
-    return {
-        token,
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-        },
-    };
+  return {
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    },
+  };
 };
