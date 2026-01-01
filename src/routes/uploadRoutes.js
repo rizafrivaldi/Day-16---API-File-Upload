@@ -6,12 +6,7 @@ const protect = require("../middleware/auth.middleware");
 const authorize = require("../middleware/roleMiddleware");
 const uploadController = require("../controllers/upload.controller");
 
-router.post(
-  "/single",
-  protect,
-  uploadController.single("file"),
-  uploadController.single
-);
+router.post("/single", protect, upload.single("file"), uploadController.single);
 
 router.post(
   "/multiple",

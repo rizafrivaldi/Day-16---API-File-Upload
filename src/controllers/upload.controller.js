@@ -1,95 +1,56 @@
-const prisma = require("../config/prisma");
-const cloudinary = require("../config/cloudinary");
+const uploadService = require("../services/upload.service");
 const { success, error } = require("../utils/response");
 
 exports.single = async (req, res) => {
   try {
     if (!req.file) return error(res, 400, "No file uploaded");
 
-    const image = await prisma.image.create({
-      data: {
-        publicId: req.file.public_id,
-        url: req.file.secure_url,
-        mimetype: req.file.mimetype,
-        size: req.file.bytes,
-        userId: req.user.id,
-      },
-    });
+    const image = await uploadService.createSingle(req.file, req.user.id);
 
     return success(res, 201, "File uploaded successfully", image);
   } catch (err) {
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
 exports.multiple = async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
+    if (!req.files || req.files.length === 0)
       return error(res, 400, "No files uploaded");
-    }
 
-    const images = req.files.map((file) => ({
-      publicId: file.public_id,
-      url: file.secure_url,
-      mimetype: file.mimetype,
-      size: file.bytes,
-      userId: req.user.id,
-    }));
+    const result = await uploadService.createMultiple(req.files, req.user.id);
 
-    const result = await prisma.image.createMany({
-      data: images,
-      skipDuplicates: true,
-    });
-
-    return success(res, 201, "Multiple files uploaded successfully", images, {
-      count: result.count,
-    });
+    return success(
+      res,
+      201,
+      "Multiple files uploaded successfully",
+      result.images,
+      { count: result.count }
+    );
   } catch (err) {
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
 exports.getAll = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const search = req.query.search || "";
-    const sortBy = req.query.sortBy || "createdAt";
-    const order = req.query.order === "asc" ? "asc" : "desc";
-
-    const allowedSort = ["createdAt", "size", "publicId"];
-    if (!allowedSort.includes(sortBy)) {
-      return error(res, 400, "Invalid sort field");
-    }
-
-    const where = {
+    const data = await uploadService.getAll({
       userId: req.user.id,
-      publicId: { contains: search },
-    };
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 10,
+      search: req.query.search || "",
+      sortBy: req.query.sortBy || "createdAt",
+      order: req.query.order === "asc" ? "asc" : "desc",
+    });
 
-    const [total, images] = await Promise.all([
-      prisma.image.count({ where }),
-      prisma.image.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { [sortBy]: order },
-      }),
-    ]);
-
-    return success(res, 200, "Images fetched successfully", images, {
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+    return success(res, 200, "Images fetched", data.images, {
+      meta: data.meta,
     });
   } catch (err) {
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
@@ -98,93 +59,63 @@ exports.getById = async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) return error(res, 400, "Invalid ID");
 
-    const image = await prisma.image.findFirst({
-      where: { id, userId: req.user.id },
-    });
-
+    const image = await uploadService.getById(id, req.user.id);
     if (!image) return error(res, 404, "File not found");
 
-    return success(res, 200, "Image fetched successfully", image);
+    return success(res, 200, "Image fetched", image);
   } catch (err) {
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
 exports.adminAll = async (req, res) => {
   try {
-    const images = await prisma.image.findMany({
-      include: {
-        user: {
-          select: { id: true, username: true, email: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
+    const images = await uploadService.adminAll();
     return success(res, 200, "All images fetched", images, {
       count: images.length,
     });
   } catch (err) {
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
 exports.reupload = async (req, res) => {
   try {
-    const id = Number(req.params.id);
     if (!req.file) return error(res, 400, "No file uploaded");
 
-    const image = await prisma.image.findUnique({ where: { id } });
-    if (!image) return error(res, 404, "File not found");
-    if (image.userId !== req.user.id)
-      return error(res, 403, "Forbidden action");
+    const updated = await uploadService.reupload(
+      Number(req.params.id),
+      req.file,
+      req.user.id
+    );
 
-    await cloudinary.uploader.destroy(image.publicId);
+    if (!updated) return error(res, 404, "File not found");
 
-    const updated = await prisma.image.update({
-      where: { id },
-      data: {
-        publicId: req.file.public_id,
-        url: req.file.secure_url,
-        mimetype: req.file.mimetype,
-        size: req.file.bytes,
-      },
-    });
-
-    return success(res, 200, "File reuploaded successfully", {
-      before: image,
-      after: updated,
-    });
+    return success(res, 200, "File reuploaded successfully", updated);
   } catch (err) {
+    if (err === "FORBIDDEN") return error(res, 403, "Forbidden");
+
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
 
 exports.remove = async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) return error(res, 400, "Invalid ID");
+    const image = await uploadService.remove(
+      Number(req.params.id),
+      req.user.id
+    );
 
-    const image = await prisma.image.findUnique({ where: { id } });
     if (!image) return error(res, 404, "File not found");
-    if (image.userId !== req.user.id) return error(res, 403, "Forbidden");
 
-    await cloudinary.uploader.destroy(image.publicId);
-    await prisma.image.delete({ where: { id } });
-
-    return success(res, 200, "File deleted successfully", {
-      id: image.id,
-      publicId: image.publicId,
-      url: image.url,
-      size: image.size,
-      mimetype: image.mimetype,
-      deletedAt: new Date(),
-    });
+    return success(res, 200, "File deleted successfully", image);
   } catch (err) {
+    if (err === "FORBIDDEN") return error(res, 403, "Forbidden");
+
     console.error(err);
-    return error(res, 500, "Terjadi kesalahan server");
+    return error(res, 500, "Server error");
   }
 };
