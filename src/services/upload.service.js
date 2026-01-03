@@ -1,5 +1,6 @@
 const prisma = require("../config/prisma");
 const cloudinary = require("../config/cloudinary");
+const AppError = require("../utils/AppError");
 
 exports.createSingle = async (file, userId) => {
   return prisma.image.create({
@@ -77,7 +78,7 @@ exports.adminAll = async () => {
 exports.reupload = async (id, file, userId) => {
   const image = await prisma.image.findUnique({ where: { id } });
   if (!image) return null;
-  if (image.userId !== userId) throw "FORBIDDEN";
+  if (image.userId !== userId) throw new AppError("FORBIDDEN");
 
   await cloudinary.uploader.destroy(image.publicId);
 
@@ -95,7 +96,9 @@ exports.reupload = async (id, file, userId) => {
 exports.remove = async (id, userId) => {
   const image = await prisma.image.findUnique({ where: { id } });
   if (!image) return null;
-  if (image.userId !== userId) throw "FORBIDDEN";
+  if (image.userId !== userId) {
+    throw new AppError("FORBIDDEN");
+  }
 
   await cloudinary.uploader.destroy(image.publicId);
   await prisma.image.delete({ where: { id } });
