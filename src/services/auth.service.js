@@ -1,10 +1,11 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../utils/token");
+const AppError = require("../utils/AppError");
 
 exports.register = async ({ username, email, password }) => {
   if (!username || !email || !password) {
-    throw { status: 400, message: "All fields are required" };
+    throw new AppError("All fields are required", 400);
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -16,7 +17,7 @@ exports.register = async ({ username, email, password }) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-
+  z;
   const user = await prisma.user.create({
     data: {
       username,

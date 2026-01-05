@@ -78,7 +78,7 @@ exports.adminAll = async () => {
 exports.reupload = async (id, file, userId) => {
   const image = await prisma.image.findUnique({ where: { id } });
   if (!image) return null;
-  if (image.userId !== userId) throw new AppError("FORBIDDEN");
+  if (image.userId !== userId) throw new AppError("Forbidden", 403);
 
   await cloudinary.uploader.destroy(image.publicId);
 
@@ -97,7 +97,7 @@ exports.remove = async (id, userId) => {
   const image = await prisma.image.findUnique({ where: { id } });
   if (!image) return null;
   if (image.userId !== userId) {
-    throw new AppError("FORBIDDEN");
+    throw new AppError("Forbidden", 403);
   }
 
   await cloudinary.uploader.destroy(image.publicId);
