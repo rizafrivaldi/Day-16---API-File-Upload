@@ -14,7 +14,7 @@ app.use(express.json());
 app.unsubscribe("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/auth", authRoutes);
-app.use("/api/upload", uploadRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
