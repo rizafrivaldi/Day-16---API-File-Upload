@@ -1,15 +1,17 @@
 const AppError = require("../utils/AppError");
 
 module.exports = (err, req, res, next) => {
-  let error = err;
+  console.error = ("ERROR", err);
 
   if (error instanceof AppError) {
-    console.error("Unexpected Error:", error);
-    error = new AppError("Internal Server Error", 500);
+    return res.status(err.statusCode).json({
+      success: false,
+      message: err.message,
+    });
   }
 
-  res.status(error.statusCode).json({
-    status: error.status,
-    message: error.message,
+  return res.status(500).json({
+    status: false,
+    message: "Internal Server Error",
   });
 };

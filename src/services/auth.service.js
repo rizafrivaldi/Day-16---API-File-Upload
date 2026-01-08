@@ -13,10 +13,11 @@ exports.register = async ({ username, email, password }) => {
   });
 
   if (existingUser) {
-    throw { status: 409, message: "Email already registered" };
+    throw new AppError("Email already registered", 409);
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+
   const user = await prisma.user.create({
     data: {
       username,
@@ -34,7 +35,7 @@ exports.register = async ({ username, email, password }) => {
 
 exports.login = async ({ email, password }) => {
   if (!email || !password) {
-    throw { status: 400, message: "Email & password are required" };
+    throw new AppError("Email & password are required", 400);
   }
 
   const user = await prisma.user.findUnique({
@@ -42,12 +43,12 @@ exports.login = async ({ email, password }) => {
   });
 
   if (!user) {
-    throw { status: 401, message: "Invalid email or password" };
+    throw new AppError("Invalid email or password", 401);
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw { status: 401, message: "Invalid email or password" };
+    throw new AppError("Invalid email or password", 401);
   }
 
   const token = generateToken({
