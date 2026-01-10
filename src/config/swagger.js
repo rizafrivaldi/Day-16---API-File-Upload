@@ -6,14 +6,13 @@ const swaggerSpec = swaggerJSDoc({
     info: {
       title: "API File Upload",
       version: "1.0.0",
-      description: "Auth + Upload API with JWT",
+      description: "Auth & File Upload API",
     },
     servers: [
       {
         url: "http://localhost:5001",
       },
     ],
-
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -24,64 +23,143 @@ const swaggerSpec = swaggerJSDoc({
       },
     },
 
-    paths: {
-      // ================= AUTH =================
-      "/api/auth/register": {
-        post: {
-          tags: ["Auth"],
-          summary: "Register new user",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["username", "email", "password"],
-                  properties: {
-                    username: { type: "string" },
-                    email: { type: "string" },
-                    password: { type: "string" },
-                  },
-                },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  apis: [], //define manual
+});
+
+swaggerSpec.paths = {
+  "/api/auth/register": {
+    post: {
+      summary: "Register user",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["username", "email", "password"],
+              properties: {
+                username: { type: "string" },
+                email: { type: "string" },
+                password: { type: "string" },
               },
             },
-          },
-          responses: {
-            201: { description: "User registered" },
-            400: { description: "Bad request" },
-            409: { description: "Email exists" },
           },
         },
       },
-
-      "/api/auth/login": {
-        post: {
-          tags: ["Auth"],
-          summary: "Login user",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["email", "password"],
-                  properties: {
-                    email: { type: "string" },
-                    password: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
-          responses: {
-            200: { description: "Login success" },
-            401: { description: "Invalid credentials" },
-          },
-        },
+      responses: {
+        201: { description: "User registered" },
+        400: { description: "Bad request" },
       },
     },
   },
-  apis: ["./src/routes/*.js"],
-});
+
+  "/api/auth/login": {
+    post: {
+      summary: "Login user",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["email", "password"],
+              properties: {
+                email: { type: "string" },
+                password: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: "Login success" },
+        401: { description: "Unauthorized" },
+      },
+    },
+  },
+
+  "/api/upload/single": {
+    post: {
+      summary: "Upload single file",
+      tags: ["Upload"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["file"],
+              properties: {
+                file: {
+                  type: "string",
+                  format: "binary",
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: { description: "File uploaded" },
+        401: { description: "Unauthorized" },
+      },
+    },
+  },
+
+  "/api/upload/multiple": {
+    post: {
+      summary: "Upload multiple files",
+      tags: ["Upload"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["files"],
+              properties: {
+                files: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    format: "binary",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: { description: "Files uploaded" },
+      },
+    },
+  },
+
+  "/api/upload": {
+    get: {
+      summary: "Get all uploads",
+      tags: ["Upload"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "page", in: "query", schema: { type: "number" } },
+        { name: "limit", in: "query", schema: { type: "number" } },
+      ],
+      responses: {
+        200: { description: "Success" },
+      },
+    },
+  },
+};
 
 module.exports = swaggerSpec;
