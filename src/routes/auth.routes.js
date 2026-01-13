@@ -13,6 +13,38 @@ router.post("/register", authController.register);
 
 /**
  * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: rivaldi
+ *               email:
+ *                 type: string
+ *                 example: rivaldi@mail.com
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       201:
+ *         description: User registered
+ */
+router.post("/register", authController.register);
+
+/**
+ * @swagger
  * /api/auth/login:
  *   post:
  *     summary: Login user

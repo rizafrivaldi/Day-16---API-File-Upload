@@ -1,14 +1,12 @@
-exports.success = (res, status, message, data = null, meta = null) => {
-  return res.status(status).json({
+exports.success = (res, data, statusCode = 200) => {
+  return res.status(statusCode).json({
     success: true,
-    message,
     data,
-    meta,
   });
 };
 
-exports.error = (res, status, message) => {
-  return res.status(status).json({
+exports.error = (res, message, statusCode = 500) => {
+  return res.status(statusCode).json({
     success: false,
     message,
   });

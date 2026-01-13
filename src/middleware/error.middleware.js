@@ -1,7 +1,7 @@
 const AppError = require("../utils/AppError");
 
 module.exports = (err, req, res, next) => {
-  console.error = ("ERROR", err);
+  console.error("ERROR STACK:", err);
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
@@ -12,6 +12,6 @@ module.exports = (err, req, res, next) => {
 
   return res.status(500).json({
     status: false,
-    message: "Internal Server Error",
+    message: err.message || "Internal Server Error",
   });
 };
