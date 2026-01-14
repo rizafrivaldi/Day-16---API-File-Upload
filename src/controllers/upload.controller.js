@@ -1,8 +1,8 @@
 const uploadService = require("../services/upload.service");
 const AppError = require("../utils/AppError");
-const { success, error } = require("../utils/response");
+const { success } = require("../utils/response");
 
-exports.single = async (req, res) => {
+exports.single = async (req, res, next) => {
   if (!req.file) {
     return next(new AppError("No file uploaded", 400));
   }
@@ -80,7 +80,7 @@ exports.reupload = async (req, res, next) => {
   return success(res, 200, "File reuploaded successfully", updated);
 };
 
-exports.remove = async (req, res) => {
+exports.remove = async (req, res, next) => {
   const image = await uploadService.remove(Number(req.params.id), req.user.id);
 
   if (!image) {
