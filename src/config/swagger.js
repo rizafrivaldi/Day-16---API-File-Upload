@@ -86,7 +86,7 @@ swaggerSpec.paths = {
     },
   },
 
-  "/api/upload/single": {
+  "/api/uploads/single": {
     post: {
       summary: "Upload single file",
       tags: ["Upload"],
@@ -115,7 +115,7 @@ swaggerSpec.paths = {
     },
   },
 
-  "/api/upload/multiple": {
+  "/api/uploads/multiple": {
     post: {
       summary: "Upload multiple files",
       tags: ["Upload"],
@@ -146,7 +146,7 @@ swaggerSpec.paths = {
     },
   },
 
-  "/api/upload": {
+  "/api/uploads": {
     get: {
       summary: "Get all uploads",
       tags: ["Upload"],
@@ -157,6 +157,7 @@ swaggerSpec.paths = {
       ],
       responses: {
         200: { description: "Success" },
+        401: { description: "Unauthorized" },
       },
     },
   },
