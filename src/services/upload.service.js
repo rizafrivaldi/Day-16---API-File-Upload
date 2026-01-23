@@ -5,10 +5,10 @@ const AppError = require("../utils/AppError");
 exports.createSingle = async (file, userId) => {
   return prisma.image.create({
     data: {
-      publicId: file.public_id,
-      url: file.secure_url,
+      publicId: file.filename,
+      url: file.path,
       mimetype: file.mimetype,
-      size: file.bytes,
+      size: file.size,
       userId,
     },
   });
@@ -16,10 +16,10 @@ exports.createSingle = async (file, userId) => {
 
 exports.createMultiple = async (files, userId) => {
   const images = files.map((file) => ({
-    publicId: file.public_id,
-    url: file.secure_url,
+    publicId: file.filename,
+    url: file.path,
     mimetype: file.mimetype,
-    size: file.bytes,
+    size: file.size,
     userId,
   }));
 
@@ -85,10 +85,10 @@ exports.reupload = async (id, file, userId) => {
   return prisma.image.update({
     where: { id },
     data: {
-      publicId: file.public_id,
-      url: file.secure_url,
+      publicId: file.filename,
+      url: file.path,
       mimetype: file.mimetype,
-      size: file.bytes,
+      size: file.size,
     },
   });
 };
