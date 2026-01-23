@@ -7,27 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model image {
   id        Int      @id @default(autoincrement())
-  username  String
-  email     String   @unique
-  password  String
-  role      String   @default("user")
-  images    Image[]
+  filename  String
+  url       String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Image {
-  id        Int      @id @default(autoincrement())
-  publicId  String?
-  url       String   @db.Text
   mimetype  String
   size      Int
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      user     @relation(fields: [userId], references: [id], map: "Image_userId_fkey")
 
-  @@index([userId])
+  @@index([userId], map: "Image_userId_fkey")
+}
+
+model user {
+  id        Int      @id @default(autoincrement())
+  username  String
+  email     String   @unique(map: "User_email_key")
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  image     image[]
 }
