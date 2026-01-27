@@ -5,6 +5,7 @@ const AppError = require("../utils/AppError");
 exports.createSingle = async (file, userId) => {
   return prisma.image.create({
     data: {
+      filename: file.originalname,
       publicId: file.filename,
       url: file.path,
       mimetype: file.mimetype,
@@ -16,6 +17,7 @@ exports.createSingle = async (file, userId) => {
 
 exports.createMultiple = async (files, userId) => {
   const images = files.map((file) => ({
+    filename: file.originalname,
     publicId: file.filename,
     url: file.path,
     mimetype: file.mimetype,
@@ -85,6 +87,7 @@ exports.reupload = async (id, file, userId) => {
   return prisma.image.update({
     where: { id },
     data: {
+      filename: file.orignalname,
       publicId: file.filename,
       url: file.path,
       mimetype: file.mimetype,
